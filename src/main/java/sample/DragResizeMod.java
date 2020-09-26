@@ -1,11 +1,16 @@
 package sample;
 
-import javafx.event.EventHandler;
 import javafx.scene.Cursor;
 import javafx.scene.Node;
-import javafx.scene.canvas.Canvas;
+import javafx.scene.Parent;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.StackPane;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Font;
+import javafx.scene.text.Text;
 
 /**
  *  ************* How to use ************************
@@ -72,17 +77,14 @@ public class DragResizeMod {
             // or i just cant find how to do it,
             // so you have to wright resize code anyway for your Nodes...
             //something like this
-            if (node instanceof Canvas) {
-                ((Canvas) node).setWidth(w);
-                ((Canvas) node).setHeight(h);
-            } else if (node instanceof Rectangle) {
-                ((Rectangle) node).setWidth(w);
-                ((Rectangle) node).setHeight(h);
+            if (node instanceof ResizablePane){
+                ((ResizablePane) node).setWidth(w);
+                ((ResizablePane) node).setHeight(h);
             }
         }
     };
 
-    public static enum S {
+    public enum S {
         DEFAULT,
         DRAG,
         NW_RESIZE,
@@ -92,7 +94,7 @@ public class DragResizeMod {
         E_RESIZE,
         W_RESIZE,
         N_RESIZE,
-        S_RESIZE;
+        S_RESIZE
     }
 
 
@@ -100,7 +102,7 @@ public class DragResizeMod {
 
     private S state = S.DEFAULT;
 
-    private Node node;
+    private final Node node;
     private OnDragResizeEventListener listener = defaultListener;
 
     private static final int MARGIN = 8;
@@ -120,30 +122,47 @@ public class DragResizeMod {
     public static void makeResizable(Node node, OnDragResizeEventListener listener) {
         final DragResizeMod resizer = new DragResizeMod(node, listener);
 
-        node.setOnMousePressed(new EventHandler<MouseEvent>() {
-            @Override
-            public void handle(MouseEvent event) {
-                resizer.mousePressed(event);
-            }
-        });
-        node.setOnMouseDragged(new EventHandler<MouseEvent>() {
-            @Override
-            public void handle(MouseEvent event) {
-                resizer.mouseDragged(event);
-            }
-        });
-        node.setOnMouseMoved(new EventHandler<MouseEvent>() {
-            @Override
-            public void handle(MouseEvent event) {
-                resizer.mouseOver(event);
-            }
-        });
-        node.setOnMouseReleased(new EventHandler<MouseEvent>() {
-            @Override
-            public void handle(MouseEvent event) {
-                resizer.mouseReleased(event);
-            }
-        });
+        if (node instanceof ResizablePane) {
+            ((ResizablePane) node).getChildren().forEach(it -> {
+                ((ResizablePane) node).hProperty().addListener(((ob, oldV, newV) -> {
+                    if (it instanceof Rectangle){
+                        ((Rectangle) it).setHeight(newV.doubleValue() * (((Rectangle) it).getHeight()/oldV.doubleValue()));
+                    } else if (it instanceof ImageView) {
+                        ((ImageView) it).setPreserveRatio(true);
+                        ((ImageView) it).setFitHeight(newV.doubleValue() * (((ImageView) it).getFitHeight() / oldV.doubleValue()));
+                    } else if (it instanceof StackPane) {
+                        ((StackPane) it).setPrefHeight(newV.doubleValue() * (((StackPane) it).getHeight()/oldV.doubleValue()));
+                        ((StackPane) it).getChildren().stream().filter(t->t instanceof Text).forEach(t ->
+                                ((Text) t).fontProperty().setValue(
+                                        new Font(((Text) t).fontProperty().get().getFamily(),
+                                                newV.doubleValue() * (((Text) t).fontProperty().get().getSize()/oldV.doubleValue())
+                                        ))
+                        );
+                    }
+                }));
+                ((ResizablePane) node).wProperty().addListener(((ob, oldV, newV) -> {
+                    if (it instanceof Rectangle){
+                        ((Rectangle) it).setWidth(newV.doubleValue() * (((Rectangle) it).getWidth()/oldV.doubleValue()));
+                    } else if (it instanceof ImageView) {
+                        ((ImageView) it).setPreserveRatio(true);
+                        ((ImageView) it).setFitWidth(newV.doubleValue() * (((ImageView) it).getFitWidth() / oldV.doubleValue()));
+                    } else if (it instanceof StackPane) {
+                        ((StackPane) it).setPrefWidth(newV.doubleValue() * (((StackPane) it).getWidth()/oldV.doubleValue()));
+                        ((StackPane) it).getChildren().stream().filter(t->t instanceof Text).forEach(t ->
+                                ((Text) t).fontProperty().setValue(
+                                        new Font(((Text) t).fontProperty().get().getFamily(),
+                                                newV.doubleValue() * (((Text) t).fontProperty().get().getSize()/oldV.doubleValue())
+                                                ))
+                        );
+                    }
+                }));
+            });
+        }
+
+        node.setOnMousePressed(resizer::mousePressed);
+        node.setOnMouseDragged(resizer::mouseDragged);
+        node.setOnMouseMoved(resizer::mouseOver);
+        node.setOnMouseReleased(resizer::mouseReleased);
     }
 
     protected void mouseReleased(MouseEvent event) {
@@ -199,7 +218,6 @@ public class DragResizeMod {
                 return Cursor.DEFAULT;
         }
     }
-
 
     protected void mouseDragged(MouseEvent event) {
 
